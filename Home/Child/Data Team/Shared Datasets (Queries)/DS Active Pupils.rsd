@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<SharedDataSet xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner" xmlns="http://schemas.microsoft.com/sqlserver/reporting/2010/01/shareddatasetdefinition">
+  <DataSet Name="DataSet1">
+    <Query>
+      <DataSourceReference>/Data Sources/Capita One</DataSourceReference>
+      <CommandText>WITH SEN as (
+	SELECT	*
+	FROM	(
+		SELECT 	stud_id, cpd_sen_stage, collection_date, start_date, end_date
+			,Rank() OVER (Partition by stud_id ORDER BY last_updt desc, start_date desc, collection_date desc) as Rnk
+		FROM	onelive.Sen_stage_hist 
+		WHERE	Nvl(start_date, collection_date) &lt;= sysdate
+                                  and       (end_date is null or end_date &gt;= sysdate)
+--		  and	cpd_sen_stage IN ('E','S','K','P','A','Q','N')
+		)
+	WHERE	Rnk=1
+--                     and    (end_date is null or end_date &gt;= sysdate)
+                        and	cpd_sen_stage IN ('E','S','K','P','A','Q')
+	)
+
+,SEN_Need as (
+    select
+      sn.stud_id,
+      sn.need,
+      lk.code_des
+    from
+     onelive. sen_needs sn
+      left outer join
+      (
+        select
+          int_code,
+          code_des
+        from
+         onelive. lookups_full
+        where
+          table_id='0123'
+        ) lk on sn.need=lk.int_code
+    where
+      sn.sen_needs_id=
+      (
+        select
+          max(sn1.sen_needs_id)
+        from
+         onelive. sen_needs sn1
+        where
+          sn1.stud_id=sn.stud_id and
+          sn1.rank=1 and
+          sn1.start_date&lt;=sysdate
+     )
+)
+,LAC as (
+                SELECT stud_id, category as LAC_Category, start_date as LAC_start_date 
+                FROM onelive.look_after_pupil_hist
+                WHERE	start_date &lt;=  sysdate
+                    and	(end_date is null OR end_date &gt;= sysdate)
+                )
+
+
+SELECT
+  s.stud_id,
+  s.surname,
+  s.forename,
+  s.dob,
+  s.gender,
+  s.up_id, 
+  s.ncy,
+  s.os_ncy,
+  s.mothertongue,
+  s.ethnic_or,
+  b.base_name,
+  b.des_no,
+  sh.start_date,
+  sh.end_date,
+  decode(vfsm.cpd_fsm,null,'F',vfsm.cpd_fsm) as fsm,
+  sen.cpd_sen_stage,
+  CASE WHEN LAC.stud_id is not null THEN 'LAC' ELSE null END as LAC_Flag
+
+FROM 
+  onelive.student s
+  inner join
+  onelive.stud_hist sh on s.stud_id = sh.stud_id
+  left outer join
+  onelive.bases b on sh.base_id = b.base_id
+  left outer join
+  onelive.vw_current_fsm_status vfsm on sh.stud_id = vfsm.stud_id
+  left outer join
+  SEN ON S.stud_id = sen.stud_id
+  left join
+  SEN_Need Sn ON sen.stud_id = sn.stud_id
+  left join
+  LAC ON s.stud_id = LAC.stud_id
+WHERE
+  b.lea_no = '869' AND
+  b.newtype_id is not NULL AND
+  b.des_no &gt; 1000 AND
+  b.xml_transfer = 'T' AND
+  s.active = 'T' AND
+  sh.reg_base = 'T' AND
+  (sh.end_date is NULL or sh.end_date &gt;= sysdate)
+ORDER BY
+  b.base_name,
+  s.surname,
+  s.forename</CommandText>
+      <rd:UseGenericDesigner>true</rd:UseGenericDesigner>
+    </Query>
+    <Fields>
+      <Field Name="STUD_ID">
+        <DataField>STUD_ID</DataField>
+        <rd:TypeName>System.Decimal</rd:TypeName>
+      </Field>
+      <Field Name="SURNAME">
+        <DataField>SURNAME</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="FORENAME">
+        <DataField>FORENAME</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="DOB">
+        <DataField>DOB</DataField>
+        <rd:TypeName>System.DateTime</rd:TypeName>
+      </Field>
+      <Field Name="GENDER">
+        <DataField>GENDER</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="UP_ID">
+        <DataField>UP_ID</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="NCY">
+        <DataField>NCY</DataField>
+        <rd:TypeName>System.Decimal</rd:TypeName>
+      </Field>
+      <Field Name="OS_NCY">
+        <DataField>OS_NCY</DataField>
+        <rd:TypeName>System.Decimal</rd:TypeName>
+      </Field>
+      <Field Name="MOTHERTONGUE">
+        <DataField>MOTHERTONGUE</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="ETHNIC_OR">
+        <DataField>ETHNIC_OR</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="BASE_NAME">
+        <DataField>BASE_NAME</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="DES_NO">
+        <DataField>DES_NO</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="START_DATE">
+        <DataField>START_DATE</DataField>
+        <rd:TypeName>System.DateTime</rd:TypeName>
+      </Field>
+      <Field Name="END_DATE">
+        <DataField>END_DATE</DataField>
+        <rd:TypeName>System.DateTime</rd:TypeName>
+      </Field>
+      <Field Name="FSM">
+        <DataField>FSM</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="CPD_SEN_STAGE">
+        <DataField>CPD_SEN_STAGE</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+      <Field Name="LAC_FLAG">
+        <DataField>LAC_FLAG</DataField>
+        <rd:TypeName>System.String</rd:TypeName>
+      </Field>
+    </Fields>
+  </DataSet>
+  <rd:ReportServerUrl>https://wbconeliverpt01/ReportServer</rd:ReportServerUrl>
+</SharedDataSet>
